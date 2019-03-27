@@ -3,9 +3,20 @@ function debugDraw(d) {
 	if (canvas.getContext) {
 		var ctx = canvas.getContext('2d');
 		ctx.beginPath();
-		ctx.moveTo(d.points[0][0], d.points[0][1]);
-		for(var i = 0; i < d.points.length; i++){
-			ctx.lineTo(d.points[i][0], d.points[i][1]);
+		var penDown = false;
+		for(var i = 0; i < d.codes.length; i++){
+			console.log(d.codes[i].id);
+			switch(d.codes[i].id){
+				case "PENUP": penDown = false; break;
+				case "PENDOWN": penDown = true; break;
+				case "GOTO": if(penDown){
+						console.log("Ran");
+						ctx.lineTo(d.codes[i].px, d.codes[i].py);
+					}
+					else{
+						ctx.moveTo(d.codes[i].px, d.codes[i].py);
+					}break;
+			}
 		}
 		ctx.stroke();
 	}
@@ -15,12 +26,20 @@ function dataObj(){
 	return{
 		x : 0,
 		y : 0,
-		points : []
+		codes : []
 	}
 }
 
-function addPoint(d, x, y){
-	d.points.push([x,y]);
+function addPENUP(d){
+	d.codes.push({id:"PENUP"});
+}
+
+function addPENDOWN(d){
+	d.codes.push({id:"PENDOWN"});
+}
+
+function addGOTO(d, x, y){
+	d.codes.push({id:"GOTO", px:x, py:y});
 }
 
 function evaluate(d, key, value){
@@ -69,14 +88,16 @@ function evaluate(d, key, value){
 	
 	// Evaluate command
 	switch(key.toUpperCase()){
-		case "C": addPoint(d, values[4], values[5]); d.x = values[4]; d.y = values[5]; break;
-		case "S": addPoint(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
-		case "T": addPoint(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
-		case "Q": addPoint(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
-		case "M": addPoint(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
-		case "L": addPoint(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
-		case "H": addPoint(d, values[0], d.y); d.x = values[0]; break;
-		case "V": addPoint(d, d.x, values[0]); d.y = values[0]; break;
+		case "C": addGOTO(d, values[4], values[5]); d.x = values[4]; d.y = values[5]; break;
+		case "S": addGOTO(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
+		case "T": addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
+		case "Q": addGOTO(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
+		case "M": addPENUP(d); 
+			addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1];
+			addPENDOWN(d); break;
+		case "L": addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
+		case "H": addGOTO(d, values[0], d.y); d.x = values[0]; break;
+		case "V": addGOTO(d, d.x, values[0]); d.y = values[0]; break;
 	}
 }
 
