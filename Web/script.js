@@ -1,4 +1,4 @@
-var minDist = 5;
+var minDist = 15;
 
 function debugDraw(d) {
 	var canvas = document.getElementById('canvas');
@@ -23,7 +23,21 @@ function debugDraw(d) {
 }
 
 function dataObj(){
-	return {x : 0, y : 0, codes : []};
+	return {x : 0, y : 0, reflectX : 0, reflectY : 0, codes : [],
+	setCurPnt : function(inX, inY){
+		this.x = inX;
+		this.y = inY;
+	},
+	reflectPnt : function(inX, inY){
+		dx = inX - this.x;
+		dy = inY - this.y;
+		this.reflectX = this.x - dx;
+		this.reflectY = this.y - dy;
+	},
+	clearReflectPnt : function(){
+		this.reflectX = this.x;
+		this.reflectY = this.y;
+	}};
 }
 
 function addPENUP(d){
@@ -36,6 +50,13 @@ function addPENDOWN(d){
 
 function addGOTO(d, x, y){
 	d.codes.push({id:"GOTO", px:x, py:y});
+}
+
+function quadraticBezier(x0, y0, x1, y1, x2, y2, t){
+	x = Math.pow(1-t, 2)*x0 + 2*(1-t)*t*x1 + t*t*x2;
+	y = Math.pow(1-t, 2)*y0 + 2*(1-t)*t*y1 + t*t*y2;
+	pt = {x:x, y:y};
+	return pt;
 }
 
 function cubicBezier(x0, y0, x1, y1, x2, y2, x3, y3, t){
@@ -63,13 +84,16 @@ function evalCurve(d, f, t1, t2){
 }
 
 function evaluate(d, key, value){
-	
+	console.log(value);
 	// Decode values
 	curIndex = 0;
 	values = [""];
 	for(var i = 0; i < value.length; i++){
 		c = value[i]
-		if(c == ","){
+		if(c == " " && values[curIndex] == ""){
+			continue;
+		}
+		if(c == "," || c == " "){
 			values.push("");
 			curIndex++;
 			continue;
@@ -83,6 +107,7 @@ function evaluate(d, key, value){
 	for(var j = 0; j < values.length; j++){
 		values[j] = Number(values[j]);
 	}
+	console.log(values);
 	
 	// Apply relative positioning
 	if(	key == "c" || 
@@ -108,21 +133,57 @@ function evaluate(d, key, value){
 	// Evaluate command
 	switch(key.toUpperCase()){
 		case "C": 
-		evalCurve(d, function(t){
-			return cubicBezier(d.x, d.y, values[0], values[1], values[2], values[3], values[4], values[5], t);
-		}, 0, 1);
-		addGOTO(d, values[4], values[5]);
-		d.x = values[4];
-		d.y = values[5]; break;
-		case "S": addGOTO(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
-		case "T": addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
-		case "Q": addGOTO(d, values[2], values[3]); d.x = values[2]; d.y = values[3]; break;
-		case "M": addPENUP(d); 
-			addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1];
-			addPENDOWN(d); break;
-		case "L": addGOTO(d, values[0], values[1]); d.x = values[0]; d.y = values[1]; break;
-		case "H": addGOTO(d, values[0], d.y); d.x = values[0]; break;
-		case "V": addGOTO(d, d.x, values[0]); d.y = values[0]; break;
+			evalCurve(d, function(t){
+				return cubicBezier(d.x, d.y, values[0], values[1], values[2], values[3], values[4], values[5], t);
+			}, 0, 1);
+			addGOTO(d, values[4], values[5]);
+			d.setCurPnt(values[4], values[5]);
+			d.reflectPnt(values[2], values[3]);
+			break;
+		case "S": 
+			evalCurve(d, function(t){
+				return cubicBezier(d.x, d.y, d.reflectX, d.reflectY, values[0], values[1], values[2], values[3], t);
+			}, 0, 1);
+			addGOTO(d, values[2], values[3]);
+			d.setCurPnt(values[2], values[3]);
+			d.reflectPnt(values[0], values[1]);
+			break;
+		case "T": 
+			evalCurve(d, function(t){
+				return quadraticBezier(d.x, d.y, d.reflectX, d.reflectY, values[0], values[1], t);
+			}, 0, 1);
+			addGOTO(d, values[0], values[1]);
+			d.setCurPnt(values[0], values[1]);
+			d.reflectPnt(d.reflectX, d.reflectY);
+			break;
+		case "Q":
+			evalCurve(d, function(t){
+				return quadraticBezier(d.x, d.y, values[0], values[1], values[2], values[3], t);
+			}, 0, 1);
+			addGOTO(d, values[2], values[3]);
+			d.setCurPnt(values[2], values[3]);
+			d.reflectPnt(values[0], values[1]);
+			break;
+		case "M": 
+			addPENUP(d);
+			addGOTO(d, values[0], values[1]);
+			addPENDOWN(d);
+			d.setCurPnt(values[0], values[1]);
+			d.clearReflectPnt();
+			break;
+		case "L":
+			addGOTO(d, values[0], values[1]);
+			d.setCurPnt(values[0], values[1]);
+			d.clearReflectPnt();
+			break;
+		case "H": 
+			addGOTO(d, values[0], d.y); 
+			d.x = values[0]; 
+			break;
+		case "V": 
+			addGOTO(d, d.x, values[0]);
+			d.y = values[0];
+			break;
 	}
 }
 
@@ -145,10 +206,10 @@ $().ready(function () {
 			for(var i = 0; i < paths.length; i++){
 				curIndex = paths[i].indexOf("d", 0)
 				curIndex = paths[i].indexOf('"', curIndex)
-				endIndex = paths[i].indexOf('z', curIndex)
+				endIndex = paths[i].indexOf('"', curIndex+1)
 				paths[i] = paths[i].slice(curIndex+1, endIndex);
 				//console.log(paths[i]);
-				pathd = paths[i].split(/([CcSsQqTtAaMmLlHhVv])/g)
+				pathd = paths[i].split(/([CcSsQqTtAaMmLlHhVvZz])/g)
 				pathd.shift();
 				evaluatePathData(d, pathd);
 			}
