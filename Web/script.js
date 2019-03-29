@@ -83,6 +83,11 @@ function evalCurve(d, f, t1, t2){
 	evalCurve(d, f, tmid, t2);
 }
 
+function isNumber(c){
+	return /\d|\.|\-/.test(c);
+	//return c == "0" || c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9";
+}
+
 function evaluate(d, key, value){
 	console.log(value);
 	// Decode values
@@ -90,19 +95,27 @@ function evaluate(d, key, value){
 	values = [""];
 	for(var i = 0; i < value.length; i++){
 		c = value[i]
-		if(c == " " && values[curIndex] == ""){
+		/*if(c == " " && values[curIndex] == ""){
 			continue;
 		}
 		if(c == "," || c == " "){
 			values.push("");
 			curIndex++;
 			continue;
+		}*/
+		if(c == "-" && i > 0){
+			values.push("");
+			curIndex++;
+			values[curIndex] += c;
 		}
-		if(c == "-" && i > 1){
+		else if(isNumber(c)){
+			values[curIndex] += c;
+		}
+		else if(values[curIndex] != ""){
 			values.push("");
 			curIndex++;
 		}
-		values[curIndex] += c;
+		
 	}
 	for(var j = 0; j < values.length; j++){
 		values[j] = Number(values[j]);
@@ -211,6 +224,7 @@ $().ready(function () {
 				//console.log(paths[i]);
 				pathd = paths[i].split(/([CcSsQqTtAaMmLlHhVvZz])/g)
 				pathd.shift();
+				console.log(pathd);
 				evaluatePathData(d, pathd);
 			}
 			//console.log(d);
